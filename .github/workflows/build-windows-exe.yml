@@ -11,51 +11,94 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
+
+      - name: Find CB Jobs app folder
+        id: findapp
+        shell: pwsh
+        run: |
+          $app = Get-ChildItem -Path . -Recurse -File -Filter "desktop_app.py" |
+            Where-Object {
+              Test-Path (Join-Path $_.Directory.FullName "requirements.txt")
+            } |
+            Select-Object -First 1
+
+          if (-not $app) {
+            Write-Host "Repository contents:"
+            Get-ChildItem -Recurse | Select-Object FullName
+            throw "Could not find desktop_app.py next to requirements.txt."
+          }
+
+          $dir = $app.Directory.FullName
+          Write-Host "Detected CB Jobs folder: $dir"
+          "APP_DIR=$dir" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
       - name: Install dependencies
         shell: pwsh
         run: |
+          Set-Location "$env:APP_DIR"
           python -m pip install --upgrade pip setuptools wheel
           pip install -r requirements.txt
 
-      - name: Verify imports
+      - name: Verify application imports
         shell: pwsh
         run: |
-          python -c "import customtkinter, requests, pypdf, docx, pandas, playwright; import desktop_app; print('Import test passed')"
+          Set-Location "$env:APP_DIR"
+          python -c "import customtkinter, requests, pypdf, docx, pandas, playwright; import desktop_app; print('CB Jobs import test passed')"
 
       - name: Build CB Jobs EXE
         shell: pwsh
         run: |
-          python -m PyInstaller `
-            --noconfirm `
-            --clean `
-            --onefile `
-            --windowed `
-            --name "CB Jobs" `
-            --icon "cb_jobs.ico" `
-            --add-data "cb_jobs.ico;." `
-            --add-data "cb_jobs.png;." `
-            --collect-all customtkinter `
-            --hidden-import zoneinfo `
-            desktop_app.py
+          Set-Location "$env:APP_DIR"
 
-      - name: Confirm build
+          $args = @(
+            "--noconfirm",
+            "--clean",
+            "--onefile",
+            "--windowed",
+            "--name", "CB Jobs",
+            "--collect-all", "customtkinter",
+            "--hidden-import", "zoneinfo"
+          )
+
+          if (Test-Path "cb_jobs.ico") {
+            $args += @("--icon", "cb_jobs.ico", "--add-data", "cb_jobs.ico;.")
+          }
+
+          if (Test-Path "cb_jobs.png") {
+            $args += @("--add-data", "cb_jobs.png;.")
+          }
+
+          $args += "desktop_app.py"
+
+          python -m PyInstaller @args
+
+      - name: Confirm EXE exists
         shell: pwsh
         run: |
+          Set-Location "$env:APP_DIR"
           if (!(Test-Path "dist\CB Jobs.exe")) {
+            Write-Host "Build directory:"
+            Get-ChildItem -Recurse build,dist -ErrorAction SilentlyContinue
             throw "CB Jobs.exe was not created."
           }
+          Get-Item "dist\CB Jobs.exe" | Format-List Name,Length,FullName
+
+      - name: Stage EXE
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "$env:GITHUB_WORKSPACE\artifact"
+          Copy-Item "$env:APP_DIR\dist\CB Jobs.exe" "$env:GITHUB_WORKSPACE\artifact\CB Jobs.exe"
 
       - name: Upload CB Jobs EXE
         uses: actions/upload-artifact@v4
         with:
           name: CB-Jobs-Windows
-          path: dist/CB Jobs.exe
+          path: artifact/CB Jobs.exe
           if-no-files-found: error
           retention-days: 30
