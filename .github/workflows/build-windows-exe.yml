@@ -1,0 +1,61 @@
+name: Build CB Jobs Windows EXE
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install -r requirements.txt
+
+      - name: Verify imports
+        shell: pwsh
+        run: |
+          python -c "import customtkinter, requests, pypdf, docx, pandas, playwright; import desktop_app; print('Import test passed')"
+
+      - name: Build CB Jobs EXE
+        shell: pwsh
+        run: |
+          python -m PyInstaller `
+            --noconfirm `
+            --clean `
+            --onefile `
+            --windowed `
+            --name "CB Jobs" `
+            --icon "cb_jobs.ico" `
+            --add-data "cb_jobs.ico;." `
+            --add-data "cb_jobs.png;." `
+            --collect-all customtkinter `
+            --hidden-import zoneinfo `
+            desktop_app.py
+
+      - name: Confirm build
+        shell: pwsh
+        run: |
+          if (!(Test-Path "dist\CB Jobs.exe")) {
+            throw "CB Jobs.exe was not created."
+          }
+
+      - name: Upload CB Jobs EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: CB-Jobs-Windows
+          path: dist/CB Jobs.exe
+          if-no-files-found: error
+          retention-days: 30
