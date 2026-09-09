@@ -1,0 +1,4 @@
+company,title,url,location,description
+Example Tech,IT Support Engineer,https://example.com/job1,New York NY,"Provide Tier 1-3 support for Windows endpoints, Active Directory, Microsoft 365, DNS, DHCP and VPN."
+Example Security,SOC Analyst,https://example.com/job2,Remote,"Monitor SIEM alerts using Splunk and EDR tools. Investigate incidents and support threat response."
+Example Corp,Senior Security Director,https://example.com/job3,New Jersey,"Senior leadership role requiring 10+ years of cybersecurity management experience and CISSP."
